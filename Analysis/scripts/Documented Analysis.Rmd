@@ -1,0 +1,136 @@
+---
+title: "Formalised Analysis of Dichoptic Opacity Experiment"
+author: "George Bell"
+date: "2025-04-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This document outlines the data analysis carried out in the paper 'Dichoptic Opacity: Occlusion Management Through Dichoptic Presentation'. The data is formatted as a .xlsx file which contains all of the generated .JSON files from the conducted experiment. 
+
+## Main Analysis
+### Loading the data
+The results from the experiment stored in "ProcessedData.xlsx" and are loaded into the variable `rawData`
+
+```{r load participant results}
+#| echo: FALSE
+library("readxl")
+
+rawData <- read_excel("../ProcessedData.xlsx")
+participantCount <- nrow(rawData)
+```
+
+Results from `r participantCount` participants were gathered during the experiment.
+
+### Cleaning the data
+In order to validate the results from the experiment and remove any outliers, the Z score and Inter Quartile Range are used on the non-dichoptic opacity values. As seen later on, due to the inconsistency of the dichoptic opacity values, attempting to clean it also would not have been worthwhile.
+
+Z score was used first to isolate any outliers.
+
+```{R cleaning with Z score}
+  # non-dichoptic results
+  binocular <-  rawData$occluderTransparency
+  zScore <- scale(binocular)
+  outliersZ <- which(abs(zScore)>2)
+
+```
+
+`r paste("The following participants have erroneous results for dichoptic opacity using Z Score: ", paste("Participant ", outliersZ, collapse = ", "))`
+
+IQR was also used to isolate any outliers from the original data set in order to ensure all were identified.
+
+```{R cleaning with IQR}
+  Q1 <- quantile(binocular, 0.25)
+  Q3 <- quantile(binocular, 0.75)
+  IQR_val <- Q3 - Q1
+  
+  lower_bound <- Q1 - 1.5 * IQR_val
+  upper_bound <- Q3 + 1.5 * IQR_val
+  
+  outliersIQR <-  which(binocular < lower_bound | binocular > upper_bound)
+
+```
+
+`r paste("The following participants have erroneous results for dichoptic opacity using IQR: ", paste("Participant ", outliersIQR, collapse = ", "))`
+
+```{R all outliers}
+allOutliers <-  union(outliersZ, outliersIQR)
+
+refinedData = rawData[-allOutliers,]
+```
+
+All outliers for both Z score and IQR were collated and then removed from the resulting data set, `refinedData`.
+
+```{r total participants}
+#| echo: FALSE
+participantCount <- nrow(refinedData)
+```
+
+With all outliers removed, the analysis was conducted on results from `r participantCount` participants.
+
+### Initialising Variables and determining metrics
+
+Data from `refinedData` was split between different variables for further analysis.
+
+```{r}
+participantCount <- nrow(refinedData)
+leftEyeOpacity <-  refinedData$leftEyeOccluderTransparency
+rightEyeOpacity <-  refinedData$rightEyeOccluderTransparency
+binocularOpacity <-  refinedData$occluderTransparency
+dichopticPreference <-  refinedData$preferredDichoptic
+```
+
+#### Non-Dichoptic Condition
+
+The average (mean) non-dichoptic opacity selected by participants to allow them to comfortably perceive shape and detail of both shapes was `r mean(binocularOpacity)` with a standard deviation of `r sd(binocularOpacity)`.
+
+
+#### Dichoptic Condition
+For dichoptic opacity, rather than left and right eye opacity values, the opacity values were transformed so that the larger value for each participant were grouped together and the same for the smaller value, under `prominentOpacity` and `nonProminentOpacity` respectively.
+
+```{r}
+prominentOpacity = mapply(max,leftEyeOpacity, rightEyeOpacity)
+nonProminentOpacity = mapply(min, leftEyeOpacity, rightEyeOpacity)
+```
+
+The **Dichoptic Midpoint** is the average (mean) of the median between `prominentOpacity` and `nonProminentOpacity`. 
+```{r}
+dichopticMidpoint = (prominentOpacity + nonProminentOpacity) / 2
+```
+**Dichoptic Midpoint** was calculated to be `r mean(dichopticMidpoint)` with a standard deviation of `r sd(dichopticMidpoint)`.
+
+The **Dichoptic Range** is the average (mean) absolute difference between `prominentOpacity` and `nonProminentOpacity`.
+
+```{r}
+dichopticRange = abs(prominentOpacity - nonProminentOpacity)
+
+```
+**Dichoptic Range** was calculated to be `r mean(dichopticRange)` with a standard deviation of `r sd(dichopticRange)`.
+
+#### Participant Preference
+```{r}
+preferredDichopticOpacity  = length(which(dichopticPreference == TRUE))
+```
+The number of participants who preferred dichoptic opacity was `r preferredDichopticOpacity`.
+
+`r paste("Percentage of participants who preferred dichoptic opacity was ", paste((preferredDichopticOpacity / participantCount) * 100), "%.")`
+
+## Additional Analysis
+
+There is a strong correlation between `dichopticMidpoint` and `binocularOpacity` of `r cor(dichopticMidpoint, binocularOpacity)`.
+
+```{r}
+differenceQ1 = quantile(dichopticRange, 0.25)
+differenceQ3 = quantile(dichopticRange, 0.75)
+
+differenceBeyondQ1 = length(which(dichopticRange > differenceQ1))
+```
+
+Majority of participants, `r paste((differenceBeyondQ1 / participantCount) * 100)`%, provided a **Dichoptic Range** above the lower quartile, `r differenceQ1`. 
+
+Of those participants below the lower quartile, `r length(which((dichopticRange <= differenceQ1) & dichopticPreference == FALSE))` did not prefer dichoptic opacity.

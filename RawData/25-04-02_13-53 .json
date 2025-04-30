@@ -1,0 +1,15 @@
+{
+    "timeStarted": "25-04-02_13-53 ",
+    "dichopticData": {
+        "dichopticOpacityActive": true,
+        "leftEyeOccluderTransparency": 0.854135274887085,
+        "rightEyeOccluderTransparency": 0.4914301633834839
+    },
+    "binocularData": {
+        "dichopticOpacityActive": false,
+        "occluderTransparency": 0.9068392515182495
+    },
+    "preferenceData": {
+        "preferredDichopticTechnique": true
+    }
+}
